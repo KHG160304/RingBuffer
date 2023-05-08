@@ -1,4 +1,6 @@
-﻿#include "RingBuffer.h"
+﻿
+#include "RingBuffer.h"
+#include <memory.h>
 
 static int defaultCapacity = sizeof(size_t);//1000;//1048576; // 1mb : 1024byte(1kb) * 1024
 static int minCapacity = 2; // 100byte is minimum size
@@ -8,11 +10,8 @@ RingBuffer::RingBuffer(void)
 	, __useSize(0)
 	, __freeSize(defaultCapacity)
 	, __internalBuffer(new char[defaultCapacity])
-	, __ptrInternalBufferStart(__internalBuffer)
-	, __ptrInternalBufferEnd(__internalBuffer + (defaultCapacity - 1))
 	, __queueFrontIndex(0)
 	, __queueRearIndex(0)
-
 {
 }
 
@@ -31,8 +30,6 @@ RingBuffer::RingBuffer(int capacity)
 	}
 	this->__freeSize = this->__capacity;
 	this->__internalBuffer = new char[this->__capacity];
-	this->__ptrInternalBufferStart = this->__internalBuffer;
-	this->__ptrInternalBufferEnd = __internalBuffer + (this->__capacity - 1);
 }
 
 RingBuffer::~RingBuffer()
@@ -100,38 +97,17 @@ int RingBuffer::Enqueue(const char* data, int size)
 	{
 		return 0;
 	}
+
 	int nextRearIndex = (this->__queueRearIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueRearIndex;
-	char* ptrCopyEnd;
-	const char* ptrData = data;
-	char* ptrIter;
-	int idx = 0;
 	if (nextRearIndex <= this->__queueRearIndex && nextRearIndex != 0)
 	{
-		/*for (ptrIter = ptrCopyStart; ptrIter <= this->__ptrInternalBufferEnd; ++ptrIter, ++ptrData)
-		{
-			*ptrIter = *ptrData;
-			idx += 1;
-		}*/
-		//memcpy(ptrCopyStart, ptrData, this->__ptrInternalBufferEnd - ptrCopyStart + 1);
-		memcpy(ptrCopyStart, ptrData, size - nextRearIndex);
-
-		/*ptrCopyEnd = this->__internalBuffer + nextRearIndex;
-		for (ptrIter = this->__internalBuffer; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrData)
-		{
-			*ptrIter = *ptrData;
-		}*/
-		//memcpy(this->__internalBuffer, ptrData + (this->__ptrInternalBufferEnd - ptrCopyStart + 1), nextRearIndex);
-		memcpy(this->__internalBuffer, ptrData + (size - nextRearIndex), nextRearIndex);
+		memcpy(ptrCopyStart, data, size - nextRearIndex);
+		memcpy(this->__internalBuffer, data + (size - nextRearIndex), nextRearIndex);
 	}
 	else
 	{
-		/*ptrCopyEnd = ptrCopyStart + size;
-		for (ptrIter = ptrCopyStart; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrData)
-		{
-			*ptrIter = *ptrData;
-		}*/
-		memcpy(ptrCopyStart, ptrData, size);
+		memcpy(ptrCopyStart, data, size);
 	}
 
 	this->__queueRearIndex = nextRearIndex;
@@ -159,35 +135,14 @@ int RingBuffer::Dequeue(char* const buffer, int size)
 
 	int nextFrontIndex = (this->__queueFrontIndex + copySize) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
-	char* ptrCopyEnd;
-	char* ptrBuffer = buffer;
-	char* ptrIter;
-
 	if (nextFrontIndex <= this->__queueFrontIndex && nextFrontIndex != 0)
 	{
-		/*for (ptrIter = ptrCopyStart; ptrIter <= this->__ptrInternalBufferEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		//memcpy(ptrBuffer, ptrCopyStart, this->__ptrInternalBufferEnd - ptrCopyStart + 1);
-		memcpy(ptrBuffer, ptrCopyStart, copySize - nextFrontIndex);
-
-		/*ptrCopyEnd = this->__internalBuffer + nextFrontIndex;
-		for (ptrIter = this->__internalBuffer; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		//memcpy(ptrBuffer + (this->__ptrInternalBufferEnd - ptrCopyStart + 1), this->__internalBuffer, nextFrontIndex);
-		memcpy(ptrBuffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
+		memcpy(buffer, ptrCopyStart, copySize - nextFrontIndex);
+		memcpy(buffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
 	}
 	else
 	{
-		/*ptrCopyEnd = ptrCopyStart + copySize;
-		for (ptrIter = ptrCopyStart; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		memcpy(ptrBuffer, ptrCopyStart, copySize);
+		memcpy(buffer, ptrCopyStart, copySize);
 	}
 
 	this->__queueFrontIndex = nextFrontIndex;
@@ -215,34 +170,14 @@ int RingBuffer::Peek(char* const buffer, int size)
 
 	int nextFrontIndex = (this->__queueFrontIndex + copySize) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
-	char* ptrCopyEnd;
-	char* ptrBuffer = buffer;
-	char* ptrIter;
 	if (nextFrontIndex <= this->__queueFrontIndex && nextFrontIndex != 0)
 	{
-		/*for (ptrIter = ptrCopyStart; ptrIter <= this->__ptrInternalBufferEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		//memcpy(ptrBuffer, ptrCopyStart, this->__ptrInternalBufferEnd - ptrCopyStart + 1);
-		memcpy(ptrBuffer, ptrCopyStart, copySize - nextFrontIndex);
-
-		/*ptrCopyEnd = this->__internalBuffer + nextFrontIndex;
-		for (ptrIter = this->__internalBuffer; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		//memcpy(ptrBuffer + (this->__ptrInternalBufferEnd - ptrCopyStart + 1), this->__internalBuffer, nextFrontIndex);
-		memcpy(ptrBuffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
+		memcpy(buffer, ptrCopyStart, copySize - nextFrontIndex);
+		memcpy(buffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
 	}
 	else
 	{
-		/*ptrCopyEnd = ptrCopyStart + copySize;
-		for (ptrIter = ptrCopyStart; ptrIter < ptrCopyEnd; ++ptrIter, ++ptrBuffer)
-		{
-			*ptrBuffer = *ptrIter;
-		}*/
-		memcpy(ptrBuffer, ptrCopyStart, copySize);
+		memcpy(buffer, ptrCopyStart, copySize);
 	}
 
 	return copySize;
@@ -250,7 +185,7 @@ int RingBuffer::Peek(char* const buffer, int size)
 
 int RingBuffer::MoveRear(int size)
 {
-	if (this->__freeSize < size || size <= 0)
+	if (this->__freeSize < size || size < 1)
 	{
 		return 0;
 	}

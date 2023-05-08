@@ -7,8 +7,7 @@
 
 #define SOURCE_PATTERN_STRING_CNT 81
 
-const char strPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
-char compstrPattern[82]   = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+
 char strPeek[82] = { 0, };
 char strDequeue[82] = { 0, };
 
@@ -45,6 +44,10 @@ int testCase1()
 	int restStrCnt = SOURCE_PATTERN_STRING_CNT;
 	__int64 loopCnt = 0;
 	int ll = 100;
+
+	const char strPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+	char   compstrPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+
 	while (ll)
 	{
 		copySize = (restStrCnt == 1) ? 1 : (rand() % restStrCnt) + 1;
