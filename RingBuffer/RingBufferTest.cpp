@@ -5,8 +5,14 @@
 #include <time.h>
 #include <windows.h>
 
+#include <list>
+#include <synchapi.h>
+#include <process.h>
+#include <conio.h>
+
 #define SOURCE_PATTERN_STRING_CNT 81
 
+#define VK_Q 0x51
 
 char strPeek[82] = { 0, };
 char strDequeue[82] = { 0, };
@@ -14,18 +20,18 @@ char strDequeue[82] = { 0, };
 void logToFile(time_t seedTime, __int64 loopCnt, int lineNo);
 int testCase1();
 int testCase2();
+void testCase3_RingBuffer_MultiThread_Enqueue_Dequeue();
 
 int main(void)
 {
-	testCase1();
+	//testCase1();
 	//testCase2();
 	/*printf("enqueue size: %d\n", rbufTest.Enqueue(nullptr, 100));
 	printf("dequeue size: %d\n", rbufTest.Dequeue(nullptr, 20));
 	printf("링버퍼 전체 크기%d\n", rbufTest.GetBufferSize());
 	printf("링버퍼 사용 크기%d\n", rbufTest.GetUseSize());
 	printf("링버퍼 가용 크기%d\n", rbufTest.GetFreeSize());*/
-
-
+	testCase3_RingBuffer_MultiThread_Enqueue_Dequeue();
 	return 0;
 }
 
@@ -103,6 +109,150 @@ int testCase2()
 		printf("Dequeue 실패\n");
 	}
 	return 0;
+}
+
+RingBuffer shareRingBuffer(SOURCE_PATTERN_STRING_CNT);
+std::list<int> copySizeList;
+bool isShutdown = false;
+SRWLOCK srwlock = RTL_SRWLOCK_INIT;
+unsigned int seedValue = 0x6459516a;//(unsigned int)time(nullptr);
+unsigned _stdcall EnqueueThread(void* args)
+{
+	srand(seedValue);
+
+	const char strPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+	shareRingBuffer.MoveRear(70);
+	shareRingBuffer.MoveFront(70);
+	int copySize;
+	int nextStartIndex = 0;
+	int restStrCnt = SOURCE_PATTERN_STRING_CNT;
+	int loopCnt = 0;
+	for (;;)
+	{
+		if (isShutdown)
+		{
+			break;
+		}
+
+		copySize = (restStrCnt == 1) ? 1 : (rand() % restStrCnt) + 1;
+		if (shareRingBuffer.Enqueue(strPattern + nextStartIndex, copySize) == 0)
+		{
+			continue;
+		}
+		//AcquireSRWLockExclusive(&srwlock);
+		copySizeList.push_back(copySize);
+		//ReleaseSRWLockExclusive(&srwlock);
+
+		nextStartIndex += copySize;
+		restStrCnt -= copySize;
+		if (restStrCnt <= 0)
+		{
+			restStrCnt = SOURCE_PATTERN_STRING_CNT;
+			nextStartIndex = 0;
+		}
+
+		loopCnt += 1;
+	}
+	printf("Enqueue Thread 종료\n");
+	return 0;
+}
+
+unsigned _stdcall DequeueThread(void* args)
+{
+	const char strPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+	char   compstrPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
+	char strPeek[82] = { 0, };
+	char strDequeue[82] = { 0, };
+	int copySize;
+	int nextStartIndex = 0;
+	int restStrCnt = SOURCE_PATTERN_STRING_CNT;
+	int loopCnt = 0;
+	for (;;)
+	{
+		//AcquireSRWLockExclusive(&srwlock);
+		if (copySizeList.size() > 0)
+		{
+			copySize = copySizeList.front();
+			copySizeList.pop_front();
+			//ReleaseSRWLockExclusive(&srwlock);
+		}
+		else
+		{
+			//ReleaseSRWLockExclusive(&srwlock);
+			continue;
+		}
+
+		shareRingBuffer.Peek(strPeek, copySize);
+		strPeek[copySize] = '\0';
+		
+		shareRingBuffer.Dequeue(strDequeue, copySize);
+		strDequeue[copySize] = '\0';
+		
+		printf("%s", strDequeue);
+
+		if (memcmp(strPeek, strDequeue, copySize) != 0)
+		{
+			printf("Peek Dequeue 에러 발생\n");
+			logToFile(seedValue, loopCnt, __LINE__);
+			isShutdown = true;
+		}
+
+		memcpy(compstrPattern + nextStartIndex, strDequeue, copySize);
+		if (memcmp(compstrPattern, strPattern, sizeof(strPattern)) != 0)
+		{
+			printf("Enqueue Dequeue 에러 발생\n");
+			logToFile(seedValue, loopCnt, __LINE__);
+			isShutdown = true;
+		}
+
+		nextStartIndex += copySize;
+		restStrCnt -= copySize;
+		if (restStrCnt <= 0)
+		{
+			restStrCnt = SOURCE_PATTERN_STRING_CNT;
+			nextStartIndex = 0;
+		}
+
+		loopCnt += 1;
+
+		if (isShutdown)
+		{
+			break;
+		}
+	}
+
+	printf("Dequeue Thread 종료\n");
+	return 0;
+}
+
+void testCase3_RingBuffer_MultiThread_Enqueue_Dequeue()
+{
+	HANDLE enqueueThread = (HANDLE)_beginthreadex(nullptr, 0, EnqueueThread, nullptr, 0, nullptr);
+	HANDLE dequeueThread = (HANDLE)_beginthreadex(nullptr, 0, DequeueThread, nullptr, 0, nullptr);
+
+	for (;;)
+	{
+		if (_kbhit())
+		{
+			_getch();
+			if (GetAsyncKeyState(VK_Q) & 0x8001)
+			{
+				isShutdown = true;
+				break;
+			}
+		}
+	}
+
+	HANDLE hThreadArr[2] = { enqueueThread, dequeueThread };
+	DWORD result = WaitForMultipleObjects(2, hThreadArr, true, INFINITE);
+	if (result == WAIT_FAILED)
+	{
+		printf("\n\n\nWaitForMultipleObjects error code: %d\n", GetLastError());
+	}
+
+	printf("모든 Thread 종료\n");
+	CloseHandle(enqueueThread);
+	CloseHandle(dequeueThread);
 }
 
 void logToFile(time_t seedTime, __int64 loopCnt, int lineNo)
