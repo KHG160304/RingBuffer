@@ -92,7 +92,7 @@ int RingBuffer::GetDirectDequeueSize(void) const
 }
 
 int RingBuffer::Enqueue(const char* data, int size)
-{
+{ 
 	if (this->__freeSize < size || size < 1)
 	{
 		return 0;
@@ -118,47 +118,47 @@ int RingBuffer::Enqueue(const char* data, int size)
 
 int RingBuffer::Dequeue(char* const buffer, int size)
 {
-	if (!this->__useSize || size < 1)
+	if (this->__useSize < size || size < 1)
 	{
 		return 0;
 	}
 
-	int copySize;
-	if (this->__useSize < size)
-	{
-		copySize = this->__useSize;
-	}
-	else
-	{
-		copySize = size;
-	}
+	//int copySize;
+	//if (this->__useSize < size)
+	//{
+	//	copySize = this->__useSize;
+	//}
+	//else
+	//{
+	//	copySize = size;
+	//}
 
-	int nextFrontIndex = (this->__queueFrontIndex + copySize) % this->__capacity;
+	int nextFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
 	if (nextFrontIndex <= this->__queueFrontIndex && nextFrontIndex != 0)
 	{
-		memcpy(buffer, ptrCopyStart, copySize - nextFrontIndex);
-		memcpy(buffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
+		memcpy(buffer, ptrCopyStart, size - nextFrontIndex);
+		memcpy(buffer + (size - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
 	}
 	else
 	{
-		memcpy(buffer, ptrCopyStart, copySize);
+		memcpy(buffer, ptrCopyStart, size);
 	}
 
 	this->__queueFrontIndex = nextFrontIndex;
-	this->__freeSize += copySize;
-	this->__useSize -= copySize;
-	return copySize;
+	this->__freeSize += size;
+	this->__useSize -= size;
+	return size;
 }
 
 int RingBuffer::Peek(char* const buffer, int size)
 {
-	if (!this->__useSize || size < 1)
+	if (this->__useSize < size || size < 1)
 	{
 		return 0;
 	}
 
-	int copySize;
+	/*int copySize;
 	if (this->__useSize < size)
 	{
 		copySize = this->__useSize;
@@ -166,21 +166,21 @@ int RingBuffer::Peek(char* const buffer, int size)
 	else
 	{
 		copySize = size;
-	}
+	}*/
 
-	int nextFrontIndex = (this->__queueFrontIndex + copySize) % this->__capacity;
+	int nextFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
 	if (nextFrontIndex <= this->__queueFrontIndex && nextFrontIndex != 0)
 	{
-		memcpy(buffer, ptrCopyStart, copySize - nextFrontIndex);
-		memcpy(buffer + (copySize - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
+		memcpy(buffer, ptrCopyStart, size - nextFrontIndex);
+		memcpy(buffer + (size - nextFrontIndex), this->__internalBuffer, nextFrontIndex);
 	}
 	else
 	{
-		memcpy(buffer, ptrCopyStart, copySize);
+		memcpy(buffer, ptrCopyStart, size);
 	}
 
-	return copySize;
+	return size;
 }
 
 int RingBuffer::MoveRear(int size)
@@ -197,12 +197,12 @@ int RingBuffer::MoveRear(int size)
 
 int RingBuffer::MoveFront(int size)
 {
-	if (!this->__useSize || size < 1)
+	if (this->__useSize < size || size < 1)
 	{
 		return 0;
 	}
 
-	int moveSize;
+	/*int moveSize;
 	if (this->__useSize < size)
 	{
 		moveSize = this->__useSize;
@@ -210,12 +210,12 @@ int RingBuffer::MoveFront(int size)
 	else
 	{
 		moveSize = size;
-	}
+	}*/
 
-	this->__queueFrontIndex = (this->__queueFrontIndex + moveSize) % this->__capacity;
-	this->__freeSize += moveSize;
-	this->__useSize -= moveSize;
-	return moveSize;
+	this->__queueFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
+	this->__freeSize += size;
+	this->__useSize -= size;
+	return size;
 }
 
 void RingBuffer::ClearBuffer(void)
