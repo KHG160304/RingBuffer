@@ -5,6 +5,7 @@
 #include <time.h>
 #include <windows.h>
 
+#include <map>
 #include <list>
 #include <synchapi.h>
 #include <process.h>
@@ -111,7 +112,16 @@ int testCase2()
 	return 0;
 }
 
+struct FreeAndUseSize
+{
+	int requestSize;
+	int freeSize;
+	int useSize;
+};
+std::map<int, FreeAndUseSize> testEnqueueMap;
+
 RingBuffer shareRingBuffer(SOURCE_PATTERN_STRING_CNT);
+RingBuffer shareCopySizeRingBuffer(SOURCE_PATTERN_STRING_CNT);
 std::list<int> copySizeList;
 bool isShutdown = false;
 SRWLOCK srwlock = RTL_SRWLOCK_INIT;
@@ -135,12 +145,24 @@ unsigned _stdcall EnqueueThread(void* args)
 		}
 
 		copySize = (restStrCnt == 1) ? 1 : (rand() % restStrCnt) + 1;
+		//shareRingBuffer.Enqueue(strPattern + nextStartIndex, copySize);
 		if (shareRingBuffer.Enqueue(strPattern + nextStartIndex, copySize) == 0)
 		{
 			continue;
 		}
+
+		testEnqueueMap.insert({ loopCnt, { copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize() } });
 		//AcquireSRWLockExclusive(&srwlock);
-		copySizeList.push_back(copySize);
+		//copySizeList.push_back(copySize);
+		if (copySize == 256)
+		{
+			while (shareCopySizeRingBuffer.Enqueue((char*)&copySize, sizeof(copySize)) == 0);
+		}
+		else
+		{
+			while (shareCopySizeRingBuffer.Enqueue((char*)&copySize, sizeof(copySize)) == 0);
+		}
+		
 		//ReleaseSRWLockExclusive(&srwlock);
 
 		nextStartIndex += copySize;
@@ -157,6 +179,8 @@ unsigned _stdcall EnqueueThread(void* args)
 	return 0;
 }
 
+
+std::map<int, FreeAndUseSize> testDequeueMap;
 unsigned _stdcall DequeueThread(void* args)
 {
 	const char strPattern[82] = "1234567890 abcdefghijklmnopqrstuvwxyz 1234567890 abcdefghijklmnopqrstuvwxyz 12345";
@@ -170,7 +194,7 @@ unsigned _stdcall DequeueThread(void* args)
 	for (;;)
 	{
 		//AcquireSRWLockExclusive(&srwlock);
-		if (copySizeList.size() > 0)
+		/*if (copySizeList.size() > 0)
 		{
 			copySize = copySizeList.front();
 			copySizeList.pop_front();
@@ -180,19 +204,34 @@ unsigned _stdcall DequeueThread(void* args)
 		{
 			//ReleaseSRWLockExclusive(&srwlock);
 			continue;
+		}*/
+		
+		if (shareCopySizeRingBuffer.Dequeue((char*)&copySize, sizeof(copySize)) == 0)
+		{
+			continue;
 		}
-
-		shareRingBuffer.Peek(strPeek, copySize);
+		int peekFront = 0;
+		int peekRear = 0;
+		int resultsize1 = shareRingBuffer.Peek(strPeek, copySize, &peekRear, &peekFront);
+		testDequeueMap.insert({ loopCnt, {copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize()} });
 		strPeek[copySize] = '\0';
 		
-		shareRingBuffer.Dequeue(strDequeue, copySize);
+		int dequeueFront = 0;
+		int dequeueRear = 0;
+		int resultsize2 = shareRingBuffer.Dequeue(strDequeue, copySize, &dequeueRear, &dequeueFront, resultsize1);
+		testDequeueMap.insert({ loopCnt+1, {copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize()} });
+		//shareRingBuffer.GetFreeSize();
+		//shareRingBuffer.GetUseSize();
 		strDequeue[copySize] = '\0';
 		
 		printf("%s", strDequeue);
 
 		if (memcmp(strPeek, strDequeue, copySize) != 0)
 		{
-			printf("Peek Dequeue 에러 발생\n");
+			
+			//testDequeueMap[loopCnt].useSize;
+			printf("Peek Dequeue 에러 발생 freesize: %d, useSize: %d\n", testDequeueMap[loopCnt].freeSize, testDequeueMap[loopCnt].useSize);
+			printf("Dequeue Dequeue 에러 발생 freesize: %d, useSize: %d\n", testDequeueMap[loopCnt + 1].freeSize, testDequeueMap[loopCnt + 1].useSize);
 			logToFile(seedValue, loopCnt, __LINE__);
 			isShutdown = true;
 		}
@@ -202,7 +241,14 @@ unsigned _stdcall DequeueThread(void* args)
 		{
 			printf("Enqueue Dequeue 에러 발생\n");
 			logToFile(seedValue, loopCnt, __LINE__);
+			shareRingBuffer.GetFrontBufferPtr();
 			isShutdown = true;
+		}
+
+		if (loopCnt == 178829)
+		{
+			shareRingBuffer.GetFrontBufferPtr();
+			shareRingBuffer.GetRearBufferPtr();
 		}
 
 		nextStartIndex += copySize;
@@ -238,8 +284,12 @@ void testCase3_RingBuffer_MultiThread_Enqueue_Dequeue()
 			if (GetAsyncKeyState(VK_Q) & 0x8001)
 			{
 				isShutdown = true;
-				break;
 			}
+		}
+
+		if (isShutdown)
+		{
+			break;
 		}
 	}
 
