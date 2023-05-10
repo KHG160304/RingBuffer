@@ -7,8 +7,6 @@ static int minCapacity = 2; // 100byte is minimum size
 
 RingBuffer::RingBuffer(void)
 	: __capacity(defaultCapacity + 1)
-	//, __useSize(0)
-	//, __freeSize(defaultCapacity)
 	, __internalBuffer(new char[defaultCapacity])
 	, __queueFrontIndex(0)
 	, __queueRearIndex(0)
@@ -16,8 +14,6 @@ RingBuffer::RingBuffer(void)
 }
 
 RingBuffer::RingBuffer(int capacity)
-	//: __useSize(0)
-	//, 
 	: __queueFrontIndex(0)
 	, __queueRearIndex(0)
 {
@@ -29,7 +25,6 @@ RingBuffer::RingBuffer(int capacity)
 	{
 		this->__capacity = capacity + 1;
 	}
-	//this->__freeSize = this->__capacity;
 	this->__internalBuffer = new char[this->__capacity];
 }
 
@@ -68,7 +63,6 @@ int RingBuffer::GetUseSize(void)
 	{
 		return this->__capacity - (_loadFrontIndex - _loadRearIndex);
 	}
-	//return this->__useSize;
 }
 
 int RingBuffer::GetFreeSize()
@@ -91,7 +85,6 @@ int RingBuffer::GetFreeSize()
 	{
 		return (_loadFrontIndex - _loadRearIndex) - 1;
 	}
-	//return this->__capacity - this->__useSize;//this->__freeSize;
 }
 
 int RingBuffer::GetDirectEnqueueSize(void) const
@@ -128,16 +121,6 @@ int RingBuffer::Enqueue(const char* data, int size)
 	{
 		return 0;
 	}
-	/*if (this->__useSize + size > this->__capacity || size < 1)
-	{
-		return 0;
-	}*/
-	/*if (this->__freeSize < size || size < 1)
-	{
-		return 0;
-	}*/
-	//freeSize;
-	
 
 	int nextRearIndex = (this->__queueRearIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueRearIndex;
@@ -152,42 +135,16 @@ int RingBuffer::Enqueue(const char* data, int size)
 	}
 
 	this->__queueRearIndex = nextRearIndex;
-	//this->__freeSize -= size;
-	//this->__useSize += size;
 	return size;
 }
 
 #include <stdio.h>
-int RingBuffer::Dequeue(char* const buffer, int size, int* rear, int* front, int peekSize)
+int RingBuffer::Dequeue(char* const buffer, int size)
 {
-	if (rear != nullptr && front != nullptr)
-	{
-		*rear = this->__queueRearIndex;
-		*front = this->__queueFrontIndex;
-	}
-	int a = this->GetUseSize();
-	if (a < size || size < 1)
-	{
-		if (peekSize > 0)
-		{
-			printf("test\n");
-		}
-		return 0;
-	}
-	/*if (this->__useSize < size || size < 1)
+	if (this->GetUseSize() < size || size < 1)
 	{
 		return 0;
-	}*/
-
-	//int copySize;
-	//if (this->__useSize < size)
-	//{
-	//	copySize = this->__useSize;
-	//}
-	//else
-	//{
-	//	copySize = size;
-	//}
+	}
 
 	int nextFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
@@ -202,36 +159,15 @@ int RingBuffer::Dequeue(char* const buffer, int size, int* rear, int* front, int
 	}
 
 	this->__queueFrontIndex = nextFrontIndex;
-	//this->__freeSize += size;
-	//this->__useSize -= size;
 	return size;
 }
 
-int RingBuffer::Peek(char* const buffer, int size, int* rear, int* front)
+int RingBuffer::Peek(char* const buffer, int size)
 {
-	if (rear != nullptr && front != nullptr)
-	{
-		*rear = this->__queueRearIndex;
-		*front = this->__queueFrontIndex;
-	}
 	if (this->GetUseSize() < size || size < 1)
 	{
 		return 0;
 	}
-	/*if (this->__useSize < size || size < 1)
-	{
-		return 0;
-	}*/
-
-	/*int copySize;
-	if (this->__useSize < size)
-	{
-		copySize = this->__useSize;
-	}
-	else
-	{
-		copySize = size;
-	}*/
 
 	int nextFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
 	char* ptrCopyStart = this->__internalBuffer + this->__queueFrontIndex;
@@ -254,13 +190,7 @@ int RingBuffer::MoveRear(int size)
 	{
 		return 0;
 	}
-	/*if (this->__useSize + size > this->__capacity || size < 1)
-	{
-		return 0;
-	}*/
 	this->__queueRearIndex = (this->__queueRearIndex + size) % this->__capacity;
-	//this->__freeSize -= size;
-	//this->__useSize += size;
 	return size;
 }
 
@@ -270,31 +200,12 @@ int RingBuffer::MoveFront(int size)
 	{
 		return 0;
 	}
-	/*if (this->__useSize < size || size < 1)
-	{
-		return 0;
-	}*/
-
-	/*int moveSize;
-	if (this->__useSize < size)
-	{
-		moveSize = this->__useSize;
-	}
-	else
-	{
-		moveSize = size;
-	}*/
-
 	this->__queueFrontIndex = (this->__queueFrontIndex + size) % this->__capacity;
-	//this->__freeSize += size;
-	//this->__useSize -= size;
 	return size;
 }
 
 void RingBuffer::ClearBuffer(void)
 {
-	//this->__useSize = 0;
-	//this->__freeSize = this->__capacity;
 	this->__queueRearIndex = 0;
 	this->__queueFrontIndex = 0;
 }

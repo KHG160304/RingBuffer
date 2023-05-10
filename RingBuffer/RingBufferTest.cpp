@@ -220,16 +220,12 @@ unsigned _stdcall DequeueThread(void* args)
 		int dequeueRear = 0;
 		int resultsize2 = shareRingBuffer.Dequeue(strDequeue, copySize, &dequeueRear, &dequeueFront, resultsize1);
 		testDequeueMap.insert({ loopCnt+1, {copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize()} });
-		//shareRingBuffer.GetFreeSize();
-		//shareRingBuffer.GetUseSize();
 		strDequeue[copySize] = '\0';
 		
 		printf("%s", strDequeue);
 
 		if (memcmp(strPeek, strDequeue, copySize) != 0)
 		{
-			
-			//testDequeueMap[loopCnt].useSize;
 			printf("Peek Dequeue 에러 발생 freesize: %d, useSize: %d\n", testDequeueMap[loopCnt].freeSize, testDequeueMap[loopCnt].useSize);
 			printf("Dequeue Dequeue 에러 발생 freesize: %d, useSize: %d\n", testDequeueMap[loopCnt + 1].freeSize, testDequeueMap[loopCnt + 1].useSize);
 			logToFile(seedValue, loopCnt, __LINE__);
@@ -243,12 +239,6 @@ unsigned _stdcall DequeueThread(void* args)
 			logToFile(seedValue, loopCnt, __LINE__);
 			shareRingBuffer.GetFrontBufferPtr();
 			isShutdown = true;
-		}
-
-		if (loopCnt == 178829)
-		{
-			shareRingBuffer.GetFrontBufferPtr();
-			shareRingBuffer.GetRearBufferPtr();
 		}
 
 		nextStartIndex += copySize;
