@@ -145,25 +145,13 @@ unsigned _stdcall EnqueueThread(void* args)
 		}
 
 		copySize = (restStrCnt == 1) ? 1 : (rand() % restStrCnt) + 1;
-		//shareRingBuffer.Enqueue(strPattern + nextStartIndex, copySize);
 		if (shareRingBuffer.Enqueue(strPattern + nextStartIndex, copySize) == 0)
 		{
 			continue;
 		}
 
 		testEnqueueMap.insert({ loopCnt, { copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize() } });
-		//AcquireSRWLockExclusive(&srwlock);
-		//copySizeList.push_back(copySize);
-		if (copySize == 256)
-		{
-			while (shareCopySizeRingBuffer.Enqueue((char*)&copySize, sizeof(copySize)) == 0);
-		}
-		else
-		{
-			while (shareCopySizeRingBuffer.Enqueue((char*)&copySize, sizeof(copySize)) == 0);
-		}
-		
-		//ReleaseSRWLockExclusive(&srwlock);
+		while (shareCopySizeRingBuffer.Enqueue((char*)&copySize, sizeof(copySize)) == 0);
 
 		nextStartIndex += copySize;
 		restStrCnt -= copySize;
@@ -193,32 +181,17 @@ unsigned _stdcall DequeueThread(void* args)
 	int loopCnt = 0;
 	for (;;)
 	{
-		//AcquireSRWLockExclusive(&srwlock);
-		/*if (copySizeList.size() > 0)
-		{
-			copySize = copySizeList.front();
-			copySizeList.pop_front();
-			//ReleaseSRWLockExclusive(&srwlock);
-		}
-		else
-		{
-			//ReleaseSRWLockExclusive(&srwlock);
-			continue;
-		}*/
-		
 		if (shareCopySizeRingBuffer.Dequeue((char*)&copySize, sizeof(copySize)) == 0)
 		{
 			continue;
 		}
-		int peekFront = 0;
-		int peekRear = 0;
-		int resultsize1 = shareRingBuffer.Peek(strPeek, copySize, &peekRear, &peekFront);
+		int resultsize1 = shareRingBuffer.Peek(strPeek, copySize);
 		testDequeueMap.insert({ loopCnt, {copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize()} });
 		strPeek[copySize] = '\0';
 		
 		int dequeueFront = 0;
 		int dequeueRear = 0;
-		int resultsize2 = shareRingBuffer.Dequeue(strDequeue, copySize, &dequeueRear, &dequeueFront, resultsize1);
+		int resultsize2 = shareRingBuffer.Dequeue(strDequeue, copySize);
 		testDequeueMap.insert({ loopCnt+1, {copySize, shareRingBuffer.GetFreeSize(), shareRingBuffer.GetUseSize()} });
 		strDequeue[copySize] = '\0';
 		
